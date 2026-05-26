@@ -108,29 +108,35 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'response_headers') {
       const s = pendingStreams.get(msg.id);
-      console.log('response_headers', msg.id, !!s, s?.bodySent);
       if (!s || s.bodySent) return;
       s.bodySent = true;
-      try {
-        s.res.writeHead(msg.status || 200, msg.headers || {});
-        s.res.flushHeaders();
-        console.log('headers written ok');
-      } catch (e) { console.log('headers write error:', e.message); }
+      s.streaming = !!msg.streaming;
+      if (msg.streaming) {
+        // Streaming: write headers immediately and flush
+        try { s.res.writeHead(msg.status || 200, msg.headers || {}); s.res.flushHeaders(); } catch (e) {}
+      } else {
+        // Non-streaming: buffer everything, send at once
+        s.status = msg.status || 200;
+        s.headers = msg.headers || {};
+        s.bodyParts = [];
+      }
       return;
     }
 
     if (msg.type === 'response_data') {
       const s = pendingStreams.get(msg.id);
-      console.log('response_data', msg.id, !!s, s?.bodySent, s?.ended);
       if (!s || !s.bodySent) return;
-      try {
-        s.res.write(Buffer.from(msg.data, 'base64'));
-        console.log('data written ok');
-      } catch (e) { console.log('data write error:', e.message); }
-      if (msg.last) {
-        try { s.res.end(); console.log('response ended ok'); } catch (e) { console.log('end error:', e.message); }
-        pendingStreams.delete(msg.id);
-        s.ended = true;
+      const buf = Buffer.from(msg.data, 'base64');
+      if (s.streaming) {
+        try { s.res.write(buf); } catch (e) {}
+        if (msg.last) { try { s.res.end(); } catch (e) {} pendingStreams.delete(msg.id); s.ended = true; }
+      } else {
+        s.bodyParts.push(buf);
+        if (msg.last) {
+          try { s.res.writeHead(s.status, s.headers); s.res.end(Buffer.concat(s.bodyParts)); } catch (e) {}
+          pendingStreams.delete(msg.id);
+          s.ended = true;
+        }
       }
       return;
     }
