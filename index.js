@@ -41,13 +41,6 @@ const server = http.createServer((req, res) => {
         path: targetPath, headers: req.headers,
         body: bodyBuf.length > 0 ? bodyBuf.toString('base64') : ''
       }));
-      req.on('close', () => {
-        const s = pendingStreams.get(reqId);
-        if (s && !s.ended) {
-          ws.send(JSON.stringify({ type: 'close', id: reqId }));
-          pendingStreams.delete(reqId);
-        }
-      });
     });
     return;
   }
@@ -168,4 +161,3 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, HOST, () => {
   console.log(`Relay server running on ${HOST}:${PORT}`);
 });
-// Tue May 26 10:07:22 UTC 2026
