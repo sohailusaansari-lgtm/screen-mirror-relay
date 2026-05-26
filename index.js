@@ -46,12 +46,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/slow') {
+    const delay = parseInt(url.searchParams.get('ms') || '1000');
+    setTimeout(() => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Delayed ' + delay + 'ms response');
+    }, delay);
+    return;
+  }
+
   if (url.pathname === '/devices') {
     const list = [];
     for (const [id, ws] of devices) {
       list.push({ id, name: deviceNames.get(id) || 'Unknown', connected: ws.readyState === ws.OPEN });
     }
     return serveJson(list);
+  }
+
+  if (url.pathname === '/slow') {
+    const parts = url.searchParams;
+    const delay = parseInt(parts.get('ms') || '1000');
+    const t0 = Date.now();
+    setTimeout(() => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Delayed ' + delay + 'ms (actual: ' + (Date.now() - t0) + 'ms)');
+    }, Math.min(delay, 5000));
+    return;
   }
 
   if (url.pathname === '/') {
