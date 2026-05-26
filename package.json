@@ -1,0 +1,12 @@
+{
+  "name": "screen-mirror-relay",
+  "version": "1.0.0",
+  "description": "WebSocket relay server for Android Screen Mirror",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
