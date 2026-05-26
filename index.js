@@ -120,11 +120,6 @@ wss.on('connection', (ws, req) => {
       const reason = status === 200 ? 'OK' : status === 404 ? 'Not Found' : 'Unknown';
       s.res.writeHead(status, reason, msg.headers || {});
       s.res.flushHeaders();
-      if (!msg.streaming) {
-        s.res.end();
-        pendingStreams.delete(msg.id);
-        s.ended = true;
-      }
       return;
     }
 
