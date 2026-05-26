@@ -96,6 +96,9 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'register') {
       deviceId = msg.device_id || 'dev-' + Math.random().toString(36).slice(2, 8);
+      // Close old connection if re-registering with same ID
+      const old = devices.get(deviceId);
+      if (old && old !== ws) { try { old.close(); } catch (_) {} }
       deviceNames.set(deviceId, msg.name || 'Unknown');
       devices.set(deviceId, ws);
       const publicUrl = (req.headers['x-forwarded-proto'] || 'http') + '://' +
