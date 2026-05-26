@@ -36,6 +36,7 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       const bodyBuf = Buffer.concat(body);
       pendingStreams.set(reqId, { res, bodySent: false, ended: false });
+      console.log('HTTP req', reqId, '-> device', deviceId, 'path:', targetPath, 'pending:', pendingStreams.size);
       ws.send(JSON.stringify({
         type: 'request', id: reqId, method: req.method,
         path: targetPath, headers: req.headers,
@@ -107,12 +108,36 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'response_headers') {
       const s = pendingStreams.get(msg.id);
+      console.log('response_headers', msg.id, !!s, s?.bodySent);
       if (!s || s.bodySent) return;
       s.bodySent = true;
-      const status = msg.status || 200;
-      const reason = status === 200 ? 'OK' : status === 404 ? 'Not Found' : 'Unknown';
-      s.res.writeHead(status, reason, msg.headers || {});
-      s.res.flushHeaders();
+      try {
+        s.res.writeHead(msg.status || 200, msg.headers || {});
+        s.res.flushHeaders();
+        console.log('headers written ok');
+      } catch (e) { console.log('headers write error:', e.message); }
+      return;
+    }
+
+    if (msg.type === 'response_data') {
+      const s = pendingStreams.get(msg.id);
+      console.log('response_data', msg.id, !!s, s?.bodySent, s?.ended);
+      if (!s || !s.bodySent) return;
+      try {
+        s.res.write(Buffer.from(msg.data, 'base64'));
+        console.log('data written ok');
+      } catch (e) { console.log('data write error:', e.message); }
+      if (msg.last) {
+        try { s.res.end(); console.log('response ended ok'); } catch (e) { console.log('end error:', e.message); }
+        pendingStreams.delete(msg.id);
+        s.ended = true;
+      }
+      return;
+    }
+
+    if (msg.type === 'response_done') {
+      const s = pendingStreams.get(msg.id);
+      if (s && s.bodySent) { try { s.res.end(); } catch (e) {} pendingStreams.delete(msg.id); s.ended = true; }
       return;
     }
 
