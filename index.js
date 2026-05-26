@@ -112,10 +112,8 @@ wss.on('connection', (ws, req) => {
       s.bodySent = true;
       s.streaming = !!msg.streaming;
       if (msg.streaming) {
-        // Streaming: write headers immediately and flush
         try { s.res.writeHead(msg.status || 200, msg.headers || {}); s.res.flushHeaders(); } catch (e) {}
       } else {
-        // Non-streaming: buffer everything, send at once
         s.status = msg.status || 200;
         s.headers = msg.headers || {};
         s.bodyParts = [];
@@ -133,7 +131,9 @@ wss.on('connection', (ws, req) => {
       } else {
         s.bodyParts.push(buf);
         if (msg.last) {
-          try { s.res.writeHead(s.status, s.headers); s.res.end(Buffer.concat(s.bodyParts)); } catch (e) {}
+          const fullBody = Buffer.concat(s.bodyParts);
+          const headers = Object.assign({}, s.headers, { 'Content-Length': String(fullBody.length) });
+          try { s.res.writeHead(s.status, headers); s.res.end(fullBody); } catch (e) {}
           pendingStreams.delete(msg.id);
           s.ended = true;
         }
