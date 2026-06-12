@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: screen-mirror-relay
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 8080

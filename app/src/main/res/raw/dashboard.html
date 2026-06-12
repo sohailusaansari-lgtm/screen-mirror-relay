@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Remote Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0a0a1a; color: #eee;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+}
+
+/* Login Screen */
+#login-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0f0c29 100%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; backdrop-filter: blur(10px);
+}
+.login-card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 24px; padding: 48px 40px 40px;
+    text-align: center; max-width: 360px; width: 90%;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    animation: fadeUp 0.6s ease;
+}
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.login-card .icon {
+    font-size: 48px; margin-bottom: 16px;
+    width: 80px; height: 80px; line-height: 80px;
+    background: linear-gradient(135deg, #4fc3f7, #1a73e8);
+    border-radius: 50%; margin: 0 auto 20px;
+    box-shadow: 0 8px 32px rgba(79,195,247,0.3);
+}
+.login-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.login-card p { color: #888; font-size: 14px; margin-bottom: 28px; }
+.login-card input {
+    width: 100%; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+    padding: 14px 16px; color: #eee; font-size: 15px; outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.login-card input:focus {
+    border-color: #4fc3f7;
+    box-shadow: 0 0 0 3px rgba(79,195,247,0.15);
+}
+.login-card input::placeholder { color: #555; }
+.login-card button {
+    width: 100%; margin-top: 14px; padding: 14px;
+    background: linear-gradient(135deg, #4fc3f7, #1a73e8);
+    border: none; border-radius: 12px; color: #fff;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.login-card button:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,195,247,0.3); }
+.login-card button:active { transform: translateY(0); }
+#loginError {
+    color: #ef5350; font-size: 13px; margin-top: 12px; display: none;
+    animation: shake 0.4s ease;
+}
+
+/* Hacker Text - full screen overlay */
+#hacker-text {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: #0a0a1a;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 52px; font-weight: 700;
+    color: transparent;
+    background: linear-gradient(135deg, #00ff41, #00cc33);
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: 0 0 40px rgba(0,255,65,0.3), 0 0 80px rgba(0,255,65,0.15);
+    letter-spacing: 8px;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s ease, background-color 0.8s ease;
+}
+#hacker-text.visible {
+    opacity: 1;
+    animation: hackPulse 3s ease-in-out infinite;
+}
+#hacker-text.fade-out {
+    opacity: 0;
+    background-color: transparent;
+}
+@keyframes hackPulse {
+    0%,100% { text-shadow: 0 0 40px rgba(0,255,65,0.3), 0 0 80px rgba(0,255,65,0.15); }
+    50% { text-shadow: 0 0 60px rgba(0,255,65,0.5), 0 0 120px rgba(0,255,65,0.25), 0 0 160px rgba(0,255,65,0.1); }
+}
+#hacker-text .cursor {
+    display: inline-block;
+    width: 4px; height: 48px;
+    background: #00ff41;
+    margin-left: 4px;
+    vertical-align: text-bottom;
+    animation: blink 0.7s step-end infinite;
+    box-shadow: 0 0 10px #00ff41;
+}
+@keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+@keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+}
+
+/* Header */
+#header {
+    background: rgba(22,33,62,0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 10px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+#header h1 { font-size: 16px; font-weight: 600; background: linear-gradient(135deg, #4fc3f7, #81d4fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+#header-left { display: flex; align-items: center; gap: 10px; }
+#hamburger {
+    background: rgba(255,255,255,0.06); border: none; color: #eee;
+    font-size: 18px; cursor: pointer; width: 32px; height: 32px;
+    border-radius: 8px; line-height: 32px; text-align: center;
+    transition: background 0.2s;
+}
+#hamburger:hover { background: rgba(255,255,255,0.1); }
+#status {
+    font-size: 11px; padding: 4px 12px; border-radius: 20px;
+    font-weight: 500; letter-spacing: 0.3px;
+}
+#status.connected { background: rgba(79,195,247,0.12); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.2); }
+#status.disconnected { background: rgba(239,83,80,0.12); color: #ef5350; border: 1px solid rgba(239,83,80,0.2); }
+#status.connecting { background: rgba(255,213,79,0.12); color: #ffd54f; border: 1px solid rgba(255,213,79,0.2); }
+
+/* Screen */
+#screen-container {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at center, #111128 0%, #0a0a1a 100%);
+}
+#screen-container.loading::after {
+    content: 'Waiting for stream...'; position: absolute; color: #444;
+    font-size: 14px; animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse {
+    0%,100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+#screen { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* Sidebar */
+#sidebar-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 20; display: none;
+    backdrop-filter: blur(4px);
+}
+#sidebar-overlay.open { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+#sidebar {
+    position: fixed; top: 0; right: -320px; width: 300px; height: 100%;
+    background: rgba(18,24,48,0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 30; transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 20px; overflow-y: auto;
+    border-left: 1px solid rgba(255,255,255,0.06);
+}
+#sidebar.open { right: 0; }
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+#sidebar h2 { font-size: 15px; margin-bottom: 20px; color: #4fc3f7; font-weight: 600; }
+#sidebar .section { margin-bottom: 22px; }
+#sidebar .section-title {
+    font-size: 10px; color: #666; text-transform: uppercase;
+    letter-spacing: 1.2px; margin-bottom: 8px; font-weight: 600;
+}
+#sidebar button {
+    background: rgba(255,255,255,0.04); color: #eee; border: 1px solid rgba(255,255,255,0.06);
+    padding: 10px 14px; border-radius: 10px; font-size: 13px; cursor: pointer;
+    width: 100%; margin-bottom: 6px; text-align: left;
+    transition: background 0.2s, border-color 0.2s; font-family: inherit;
+}
+#sidebar button:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); }
+#sidebar button.mic-on { background: rgba(239,83,80,0.15); border-color: rgba(239,83,80,0.3); color: #ef5350; }
+#sidebar button.mic-on:hover { background: rgba(239,83,80,0.25); }
+#sidebar button.cam-on { background: rgba(76,175,80,0.15); border-color: rgba(76,175,80,0.3); color: #4caf50; }
+#sidebar button.cam-on:hover { background: rgba(76,175,80,0.25); }
+#sidebar .text-row { display: flex; gap: 6px; }
+#sidebar .text-row input {
+    flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+    color: #eee; padding: 8px 12px; border-radius: 8px; font-size: 13px;
+    outline: none; transition: border-color 0.3s; font-family: inherit;
+}
+#sidebar .text-row input:focus { border-color: #4fc3f7; }
+#sidebar .text-row button { width: auto; padding: 8px 16px; flex-shrink: 0; }
+#sidebar .ip-list { font-size: 12px; color: #777; margin: 4px 0; line-height: 1.6; }
+#sidebar .ip-list span { color: #4fc3f7; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+#sidebar .tunnel-url {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px; padding: 8px 10px; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px; color: #4caf50; word-break: break-all; margin: 4px 0;
+    cursor: pointer; transition: background 0.2s;
+}
+#sidebar .tunnel-url:hover { background: rgba(0,0,0,0.5); }
+#sidebar .close-btn {
+    float: right; background: rgba(255,255,255,0.04); border: none;
+    color: #888; font-size: 16px; cursor: pointer; width: 28px; height: 28px;
+    border-radius: 6px; line-height: 28px; text-align: center; padding: 0; margin: 0;
+    transition: color 0.2s, background 0.2s;
+}
+#sidebar .close-btn:hover { color: #eee; background: rgba(255,255,255,0.08); }
+#sidebar .audio-status { font-size: 12px; color: #777; margin: 6px 0 0; display: flex; align-items: center; gap: 6px; }
+#sidebar .audio-status .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #444;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+#sidebar .audio-status .dot.active { background: #4fc3f7; box-shadow: 0 0 8px rgba(79,195,247,0.4); }
+#sidebar .audio-status .dot.speaking { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.4); }
+#sidebar .fps-display { font-size: 12px; color: #777; margin: 4px 0; }
+#sidebar .fps-display span { color: #4fc3f7; font-weight: 600; }
+#sidebar .slider-row { margin: 10px 0; }
+#sidebar .slider-row label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+#sidebar .slider-row label span { color: #4fc3f7; font-weight: 600; }
+#sidebar .slider-row input[type=range] {
+    width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.08); border-radius: 2px; outline: none;
+    accent-color: #4fc3f7;
+}
+#sidebar .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: #4fc3f7; cursor: pointer; box-shadow: 0 2px 8px rgba(79,195,247,0.3);
+}
+#sidebar .slider-row select {
+    width: 100%; background: rgba(0,0,0,0.3); color: #eee;
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit;
+}
+#sidebar .slider-row select:focus { border-color: #4fc3f7; }
+
+/* Camera PiP */
+#camera-popup {
+    position: fixed; bottom: 60px; right: 16px; width: 160px; height: 120px;
+    border-radius: 16px; overflow: hidden; z-index: 15;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: none;
+    border: 2px solid rgba(79,195,247,0.4);
+    backdrop-filter: blur(4px);
+}
+#camera-popup img { width: 100%; height: 100%; object-fit: cover; }
+#camera-popup .close-cam {
+    position: absolute; top: 4px; right: 4px;
+    background: rgba(0,0,0,0.5); color: #fff; border: none;
+    border-radius: 50%; width: 22px; height: 22px;
+    font-size: 11px; cursor: pointer; line-height: 22px; text-align: center;
+    transition: background 0.2s;
+}
+#camera-popup .close-cam:hover { background: rgba(239,83,80,0.8); }
+
+/* Bottom nav */
+#bottom-nav {
+    background: rgba(22,33,62,0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 4px 6px;
+    display: flex; justify-content: space-around; flex-shrink: 0;
+    z-index: 10; gap: 4px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+#bottom-nav button {
+    flex: 1; background: rgba(255,255,255,0.03);
+    color: #bbb; border: 1px solid rgba(255,255,255,0.04);
+    padding: 8px 4px; border-radius: 8px; font-size: 11px;
+    cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s;
+    font-family: inherit; font-weight: 500;
+}
+#bottom-nav button:hover {
+    background: rgba(79,195,247,0.08);
+    color: #4fc3f7; border-color: rgba(79,195,247,0.15);
+}
+#bottom-nav button:active { background: rgba(79,195,247,0.15); transform: scale(0.96); }
+</style>
+</head>
+<body>
+
+<div id="hacker-text"></div>
+
+<!-- Login Screen -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="icon">📱</div>
+        <h2>Remote Monitor</h2>
+        <p>Enter passcode to access your device</p>
+        <input type="password" id="passwordInput" placeholder="Passcode" autocomplete="off" onkeydown="if(event.key==='Enter')checkPassword()">
+        <button onclick="checkPassword()">Unlock</button>
+        <div id="loginError">Incorrect passcode</div>
+    </div>
+</div>
+
+<div id="header">
+    <div id="header-left">
+        <button id="hamburger" onclick="toggleSidebar()">☰</button>
+        <h1>Remote Monitor</h1>
+    </div>
+    <span id="status" class="connecting">Connecting...</span>
+</div>
+<div id="screen-container" class="loading">
+    <img id="screen" style="display:block;max-width:100%;max-height:100%;object-fit:contain">
+</div>
+
+<div id="camera-popup">
+    <button class="close-cam" onclick="stopCamera()">✕</button>
+    <img id="cam-feed" src="">
+</div>
+
+<div id="bottom-nav">
+    <button onclick="sendKey('back')">◀ Back</button>
+    <button onclick="sendKey('home')">⌂ Home</button>
+    <button onclick="sendKey('recent')">☰ Recent</button>
+    <button onclick="sendKey('volume_up')">🔊 Vol+</button>
+    <button onclick="sendKey('volume_down')">🔉 Vol-</button>
+    <button onclick="sendKey('power')">⏻ Power</button>
+</div>
+
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div id="sidebar">
+    <button class="close-btn" onclick="toggleSidebar()">✕</button>
+    <h2>Controls</h2>
+
+    <div class="section">
+        <div class="section-title">Audio</div>
+        <button id="micBtn" onclick="toggleMic()">🎤 Mic Off</button>
+        <div class="audio-status">
+            <span class="dot" id="audioDot"></span>
+            <span id="audioStatusText">Idle</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📷 Camera</div>
+        <button id="camBtn" onclick="toggleCamera()">📷 Camera Off</button>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Text Input</div>
+        <div class="text-row">
+            <input type="text" id="textField" placeholder="Type text..." />
+            <button onclick="sendText()">Send</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Performance</div>
+        <div class="fps-display"><span id="fpsDisplay">0</span> FPS</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Stream Quality</div>
+        <div class="slider-row">
+            <label>Quality: <span id="qualityVal">40</span></label>
+            <input type="range" id="qualitySlider" min="10" max="90" value="40" oninput="setQuality(this.value)">
+        </div>
+        <div class="slider-row">
+            <label>FPS: <span id="fpsVal">8</span></label>
+            <input type="range" id="fpsSlider" min="1" max="30" value="8" oninput="setFps(this.value)">
+        </div>
+        <div class="slider-row">
+            <label>Resolution</label>
+            <select id="resSelect" onchange="setResolution(this.value)">
+                <option value="320">320p</option>
+                <option value="480">480p</option>
+                <option value="640">640p</option>
+                <option value="960" selected>960p</option>
+                <option value="0">Full</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">🌐 Public Access</div>
+        <div class="ip-list" id="tunnelStatus">Connecting...</div>
+        <div class="tunnel-url" id="tunnelUrl" style="display:none" onclick="copyCmd(this)"></div>
+        <div class="tunnel-url" id="relayUrl" style="display:none" onclick="copyCmd(this)"></div>
+        <div class="ip-list" id="tunnelError" style="color:#ef5350"></div>
+        <div style="font-size:11px;color:#555;margin:8px 0">Same WiFi:</div>
+        <div class="ip-list" id="ipList">Loading...</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📱 Connected Devices</div>
+        <div id="deviceList">
+            <div style="font-size:12px;color:#888">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const AUTH_KEY = 'rm_auth_v1';
+    const AUTH_PASS = 'admin';
+
+    function checkPassword() {
+        const input = document.getElementById('passwordInput');
+        if (input.value === AUTH_PASS) {
+            localStorage.setItem(AUTH_KEY, '1');
+            document.getElementById('login-screen').style.display = 'none';
+        } else {
+            const err = document.getElementById('loginError');
+            err.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+    }
+    window.checkPassword = checkPassword;
+
+    if (localStorage.getItem(AUTH_KEY)) {
+        document.getElementById('login-screen').style.display = 'none';
+    }
+
+    // Hacker typewriter effect
+    (function() {
+        var el = document.getElementById('hacker-text');
+        if (!el) return;
+        var text = 'Sohail';
+        var i = 0;
+        function type() {
+            if (i < text.length) {
+                el.innerHTML = text.substring(0, i + 1) + '<span class="cursor"></span>';
+                i++;
+                setTimeout(type, 120 + Math.random() * 80);
+            } else {
+                el.innerHTML = text + '<span class="cursor"></span>';
+                setTimeout(function() {
+                    el.classList.add('fade-out');
+                    setTimeout(function() {
+                        el.style.display = 'none';
+                    }, 800);
+                }, 2000);
+            }
+        }
+        setTimeout(type, 300);
+    })();
+
+    const img = document.getElementById('screen');
+    const statusEl = document.getElementById('status');
+    const container = document.getElementById('screen-container');
+    const fpsEl = document.getElementById('fpsDisplay');
+    const micBtn = document.getElementById('micBtn');
+    const camBtn = document.getElementById('camBtn');
+    const camPopup = document.getElementById('camera-popup');
+    const camFeed = document.getElementById('cam-feed');
+    const audioDot = document.getElementById('audioDot');
+    const audioStatusText = document.getElementById('audioStatusText');
+    const ipList = document.getElementById('ipList');
+
+    function getRelayPrefix() {
+        var m = window.location.pathname.match(/^(\/device\/[^\/]+)/);
+        return m ? m[1] : '';
+    }
+    var relayPrefix = getRelayPrefix();
+
+    let phoneWidth = 0, phoneHeight = 0;
+    let frameCount = 0, lastFrameTime = performance.now(), fps = 0;
+    let micActive = false, camActive = false;
+    let lastFrameReceived = 0;
+    let mjpegWatchdog = null;
+    let localIps = [];
+
+    let audioCtx = null;
+    let scheduledTime = 0;
+    let audioReader = null;
+    let audioReadBuffer = new Uint8Array(0);
+    let audioStreamActive = false;
+
+    function updateAudioStatus(state, text) {
+        audioDot.className = 'dot' + (state ? ' ' + state : '');
+        audioStatusText.textContent = text || 'Idle';
+    }
+
+    function initAudio() {
+        if (!audioCtx) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+                updateAudioStatus('', 'Audio init OK');
+            } catch(e) {
+                updateAudioStatus('', 'Audio error: ' + e.message);
+            }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(function(){});
+        }
+    }
+
+    function playPcmAudio(pcmData) {
+        if (!audioCtx) return;
+        try {
+            const byteLen = pcmData.byteLength || pcmData.length;
+            if (byteLen < 2) return;
+            const samples = new Int16Array(pcmData.buffer || pcmData, pcmData.byteOffset || 0, byteLen / 2);
+            if (samples.length === 0) return;
+            const buf = audioCtx.createBuffer(1, samples.length, audioCtx.sampleRate);
+            const channel = buf.getChannelData(0);
+            let peak = 0;
+            for (let i = 0; i < samples.length; i++) {
+                const val = samples[i] / 32768;
+                channel[i] = val;
+                const abs = Math.abs(val);
+                if (abs > peak) peak = abs;
+            }
+            if (peak > 0.05) updateAudioStatus('speaking', 'Speaking');
+            else updateAudioStatus('active', 'Listening');
+            const source = audioCtx.createBufferSource();
+            source.buffer = buf;
+            source.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            if (scheduledTime < now) scheduledTime = now;
+            source.start(scheduledTime);
+            scheduledTime += buf.duration;
+        } catch(e) { console.warn('playPcmAudio error:', e); }
+    }
+
+    function stopAudio() {
+        if (audioCtx) { audioCtx.close().catch(function(){}); audioCtx = null; }
+        scheduledTime = 0;
+        updateAudioStatus('', 'Stopped');
+    }
+
+    async function readExact(reader, n) {
+        while (audioReadBuffer.length < n) {
+            const { done, value } = await reader.read();
+            if (done) throw new Error('EOF');
+            const newBuf = new Uint8Array(audioReadBuffer.length + value.length);
+            newBuf.set(audioReadBuffer);
+            newBuf.set(value, audioReadBuffer.length);
+            audioReadBuffer = newBuf;
+        }
+        const result = audioReadBuffer.slice(0, n);
+        audioReadBuffer = audioReadBuffer.slice(n);
+        return result;
+    }
+
+    async function readAudioLoop() {
+        while (micActive) {
+            try {
+                const resp = await fetch(relayPrefix + '/audio');
+                if (!micActive) { resp.body.getReader().cancel(); return; }
+                audioReader = resp.body.getReader();
+                audioStreamActive = true;
+                audioReadBuffer = new Uint8Array(0);
+                updateAudioStatus('active', 'Stream active');
+                while (micActive) {
+                    const lenBuf = await readExact(audioReader, 4);
+                    const len = ((lenBuf[0] << 24) | (lenBuf[1] << 16) | (lenBuf[2] << 8) | lenBuf[3]) >>> 0;
+                    if (len === 0 || len > 1000000) break;
+                    const pcmData = await readExact(audioReader, len);
+                    playPcmAudio(pcmData);
+                }
+            } catch (e) {
+                if (!micActive) break;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        audioStreamActive = false;
+        audioReader = null;
+        if (!micActive) updateAudioStatus('', 'Idle');
+    }
+
+    async function sendCommand(cmd) {
+        try { await fetch(relayPrefix + '/control', { method: 'POST', body: JSON.stringify(cmd) }); }
+        catch(e) { console.warn('sendCommand error:', e); }
+    }
+
+    window.sendKey = function(key) { sendCommand({ type: 'key', key: key }); };
+
+    window.sendText = function() {
+        const input = document.getElementById('textField');
+        const text = input.value;
+        if (text) { sendCommand({ type: 'text', text: text }); input.value = ''; }
+    };
+
+    window.toggleMic = function() {
+        if (micActive) {
+            micActive = false;
+            micBtn.textContent = '🎤 Mic Off';
+            micBtn.className = '';
+            if (audioReader) { audioReader.cancel().catch(function(){}); audioReader = null; }
+            stopAudio();
+            sendCommand({ type: 'mic_stop' });
+        } else {
+            initAudio();
+            sendCommand({ type: 'mic_start' });
+            micActive = true;
+            micBtn.textContent = '🎤 Mic On';
+            micBtn.className = 'mic-on';
+            updateAudioStatus('active', 'Starting...');
+            readAudioLoop().catch(function(e) {
+                if (micActive) {
+                    micActive = false;
+                    micBtn.textContent = '🎤 Mic Off';
+                    micBtn.className = '';
+                    updateAudioStatus('', 'Error: ' + e.message);
+                }
+            });
+        }
+    };
+
+    window.toggleCamera = function() {
+        if (camActive) {
+            stopCamera();
+        } else {
+            camActive = true;
+            camBtn.textContent = '📷 Camera On';
+            camBtn.className = 'cam-on';
+            sendCommand({ type: 'camera_start' });
+            camPopup.style.display = 'block';
+            camFeed.src = relayPrefix + '/frontcam?_=' + Date.now();
+        }
+    };
+
+    window.stopCamera = function() {
+        camActive = false;
+        camBtn.textContent = '📷 Camera Off';
+        camBtn.className = '';
+        sendCommand({ type: 'camera_stop' });
+        camPopup.style.display = 'none';
+        camFeed.src = '';
+    };
+
+    window.setQuality = function(val) {
+        document.getElementById('qualityVal').textContent = val;
+        sendCommand({ type: 'set_quality', value: parseInt(val) });
+    };
+    window.setFps = function(val) {
+        document.getElementById('fpsVal').textContent = val;
+        sendCommand({ type: 'set_fps', value: parseInt(val) });
+    };
+    window.setResolution = function(val) {
+        sendCommand({ type: 'set_resolution', value: parseInt(val) });
+    };
+
+    window.toggleSidebar = function() {
+        const overlay = document.getElementById('sidebar-overlay');
+        const sidebar = document.getElementById('sidebar');
+        const isOpen = sidebar.classList.contains('open');
+        overlay.classList.toggle('open');
+        sidebar.classList.toggle('open');
+        if (!isOpen) { fetchIps(); fetchTunnel(); }
+    };
+
+    async function fetchTunnel() {
+        const statusEl = document.getElementById('tunnelStatus');
+        const urlEl = document.getElementById('tunnelUrl');
+        const relayUrlEl = document.getElementById('relayUrl');
+        const errEl = document.getElementById('tunnelError');
+        try {
+            const [tunResp, relResp] = await Promise.all([
+                fetch(relayPrefix + '/tunnel'),
+                fetch(relayPrefix + '/relay')
+            ]);
+            const tun = await tunResp.json();
+            const rel = await relResp.json();
+
+            let html = '';
+            let relayUrl = null;
+
+            if (rel.connected && rel.url) {
+                html += '<div>🚀 Relay URL:</div>';
+                relayUrlEl.style.display = 'block';
+                relayUrlEl.textContent = rel.url;
+                relayUrl = rel.url;
+                relayUrlEl.onclick = function() { copyCmd(this); };
+            } else {
+                relayUrlEl.style.display = 'none';
+            }
+
+            if (tun.connected && tun.url) {
+                html += '<div>🔗 SSH Tunnel:</div>';
+                urlEl.style.display = 'block';
+                urlEl.textContent = tun.url;
+            } else {
+                urlEl.style.display = 'none';
+            }
+
+            if (!html) {
+                if (tun.error) {
+                    html = '<div>⏳ ' + tun.error + '</div>';
+                    errEl.textContent = tun.error;
+                } else {
+                    html = '<div>⏳ Connecting...</div>';
+                }
+            } else {
+                errEl.textContent = '';
+            }
+            statusEl.innerHTML = html;
+
+            if (relayUrl) {
+                var base = relayUrl.replace('/device/' + rel.device_id, '');
+                fetchDevices(base);
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<div>⏳ Tunnel not available</div>';
+            urlEl.style.display = 'none';
+            relayUrlEl.style.display = 'none';
+            errEl.textContent = '';
+        }
+    }
+
+    async function fetchDevices(relayBase) {
+        const el = document.getElementById('deviceList');
+        try {
+            const resp = await fetch(relayBase + '/devices');
+            const list = await resp.json();
+            if (!list || list.length === 0) {
+                el.innerHTML = '<div style="font-size:12px;color:#555">No devices connected</div>';
+                return;
+            }
+            el.innerHTML = list.map(function(d) {
+                var active = d.connected ? '🟢' : '🔴';
+                var devUrl = relayBase + '/device/' + d.id;
+                var isCurrent = window.location.pathname.indexOf('/device/' + d.id) !== -1;
+                var borderColor = isCurrent ? 'border-left:3px solid #4fc3f7;' : 'border-left:3px solid transparent;';
+                return '<div style="font-size:13px;padding:8px 8px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;' + borderColor + '" onclick="window.location.href=\'' + devUrl + '\'">' +
+                    active + ' <strong>' + d.name + '</strong>' +
+                    '<br><span style="font-size:11px;color:#4caf50;font-family:monospace">' + devUrl + '</span></div>';
+            }).join('');
+        } catch(e) {
+            el.innerHTML = '<div style="font-size:12px;color:#555">Relay offline</div>';
+        }
+    }
+
+    async function fetchIps() {
+        try {
+            const resp = await fetch(relayPrefix + '/ips');
+            const data = await resp.json();
+            localIps = data.ips || [];
+            if (localIps.length > 0) {
+                ipList.innerHTML = localIps.map(function(ip) {
+                    return '<div>Device IP: <span>' + ip + '</span></div>';
+                }).join('');
+            } else {
+                ipList.innerHTML = '<div>No network IP found</div>';
+            }
+        } catch(e) {
+            ipList.innerHTML = '<div>Error fetching IPs</div>';
+        }
+    }
+
+    window.copyCmd = function(el) {
+        const text = el.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            el.style.borderColor = '#4caf50';
+            setTimeout(function() { el.style.borderColor = ''; }, 1000);
+        }).catch(function(){});
+    };
+
+    function startMjpegStream() {
+        const ts = Date.now();
+        img.src = relayPrefix + '/stream?_=' + ts;
+        setStatus('connecting', 'Connecting...');
+        lastFrameReceived = ts;
+    }
+
+    img.onload = function() {
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            container.classList.remove('loading');
+            setStatus('connected', 'Connected');
+            if (phoneWidth !== img.naturalWidth || phoneHeight !== img.naturalHeight) {
+                phoneWidth = img.naturalWidth;
+                phoneHeight = img.naturalHeight;
+            }
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFrameTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+                fpsEl.textContent = fps;
+            }
+            lastFrameReceived = Date.now();
+        }
+    };
+
+    img.onerror = function() {
+        setStatus('disconnected', 'Stream lost');
+        container.classList.add('loading');
+        if (lastFrameReceived === 0) setTimeout(startMjpegStream, 2000);
+    };
+
+    function setStatus(state, text) {
+        statusEl.className = state;
+        statusEl.textContent = text;
+    }
+
+    mjpegWatchdog = setInterval(function() {
+        if (lastFrameReceived > 0 && Date.now() - lastFrameReceived > 5000) {
+            img.src = relayPrefix + '/stream?_=' + Date.now();
+            lastFrameReceived = 0;
+        }
+    }, 2000);
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;touch-action:none';
+    container.style.position = 'relative';
+    container.appendChild(overlay);
+
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+
+    function getPhoneCoords(e) {
+        const rect = img.getBoundingClientRect();
+        const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+        const scaleX = phoneWidth / rect.width;
+        const scaleY = phoneHeight / rect.height;
+        return {
+            x: Math.round(Math.max(0, Math.min((clientX - rect.left) * scaleX, phoneWidth - 1))),
+            y: Math.round(Math.max(0, Math.min((clientY - rect.top) * scaleY, phoneHeight - 1)))
+        };
+    }
+
+    function handlePointerDown(e) {
+        isDragging = false;
+        const p = getPhoneCoords(e);
+        dragStartX = p.x;
+        dragStartY = p.y;
+    }
+
+    function handlePointerMove(e) {
+        if (!dragStartX && !dragStartY) return;
+        const p = getPhoneCoords(e);
+        const dx = Math.abs(p.x - dragStartX);
+        const dy = Math.abs(p.y - dragStartY);
+        if (dx > 15 || dy > 15) {
+            isDragging = true;
+        }
+    }
+
+    function handlePointerUp(e) {
+        const p = getPhoneCoords(e);
+        if (isDragging) {
+            sendCommand({ type: 'swipe', x: dragStartX, y: dragStartY, x2: p.x, y2: p.y, duration: 200 });
+        } else {
+            sendCommand({ type: 'tap', x: p.x, y: p.y });
+        }
+        isDragging = false;
+        dragStartX = 0;
+        dragStartY = 0;
+    }
+
+    overlay.addEventListener('mousedown', handlePointerDown);
+    overlay.addEventListener('mousemove', handlePointerMove);
+    overlay.addEventListener('mouseup', handlePointerUp);
+    overlay.addEventListener('mouseleave', function() { isDragging = false; dragStartX = 0; dragStartY = 0; });
+
+    overlay.addEventListener('touchstart', function(e) { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+    overlay.addEventListener('touchmove', function(e) { e.preventDefault(); handlePointerMove(e); }, { passive: false });
+    overlay.addEventListener('touchend', function(e) { e.preventDefault(); handlePointerUp(e); }, { passive: false });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        switch (e.key) {
+            case 'Backspace': sendKey('back'); e.preventDefault(); break;
+            case 'Escape': sendKey('home'); e.preventDefault(); break;
+        }
+    });
+
+    startMjpegStream();
+})();
+</script>
+</body>
+</html>
